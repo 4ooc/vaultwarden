@@ -56,7 +56,7 @@ jobs:
         with:
           tag_name: latest
           name: personal release
-          prerelease: true
+          prerelease: false
           files: vaultwarden/target/aarch64-unknown-linux-musl/release/vaultwarden
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
