@@ -1,0 +1,62 @@
+name: Build Termux Vaultwarden
+
+on:
+  push:
+    tags:
+      - "*"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: clone vaultwarden
+        run: |
+          git clone https://github.com/dani-garcia/vaultwarden.git
+          cd vaultwarden
+          git fetch --tags
+
+      - name: determine tag
+        id: tag
+        run: |
+          cd vaultwarden
+
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            TAG=$(git describe --tags $(git rev-list --tags --max-count=1))
+          else
+            TAG=${GITHUB_REF_NAME}
+          fi
+
+          echo "TAG=$TAG"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: checkout tag
+        run: |
+          cd vaultwarden
+          git checkout ${{ steps.tag.outputs.tag }}
+
+      - name: install rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-unknown-linux-musl
+
+      - name: Install cross
+        uses: taiki-e/install-action@cross
+
+      - name: Build Vaultwarden (using cross)
+        env:
+          RUSTFLAGS: "-C target-feature=+crt-static -C strip=symbols"
+        run: |
+          cd vaultwarden
+          cross build --features sqlite,vendored_openssl --release --target aarch64-unknown-linux-musl
+
+      - name: create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: personal release
+          prerelease: true
+          files: vaultwarden/target/aarch64-unknown-linux-musl/release/vaultwarden
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
